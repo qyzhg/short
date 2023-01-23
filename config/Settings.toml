@@ -3,5 +3,5 @@ ip="0.0.0.0"
 port="8000"
 
 [database]
-url = "mysql://user:password@localhost/tiny-url"
+url = "mysql://root:aE2rk95rjZjD2V8jbUbhc3ec4ia7PnxkRv2iS2MGzXog8wocYCSricACWKwWWWRQeXdydHeHcPuVdGjS9SJ673VZfCA5mV8KaXqD8hgJaAgE4TvAZTWyFrNMZgKuGjR2@10.0.0.35/tiny-url"
 pool_size = 5

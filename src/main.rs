@@ -1,9 +1,11 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder, http};
 use log::{LevelFilter, info};
 use settings::Settings;
 use simple_logger::SimpleLogger;
 use sqlx::mysql::MySqlPoolOptions;
 use tera::{Context, Tera};
+use actix_cors::Cors;
+
 
 mod api;
 mod settings;
@@ -27,7 +29,7 @@ lazy_static! {
 
 #[get("/")]
 async fn index() -> impl Responder {
-    let content = "Generate a tiny code for url";
+    let content = "短链接生成";
     let mut data = Context::new();
 
     data.insert("content", content);
@@ -57,8 +59,15 @@ async fn main() -> Result<(), sqlx::Error> {
     info!("server listening at http://{:?}", &ip);
 
     HttpServer::new(move || {
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .max_age(3600);
+
         App::new()
             .app_data(web::Data::new(pool.clone()))
+            .wrap(cors)
             .service(index)
             .service(api::links::create_link)
             .service(api::links::get_all_links)
