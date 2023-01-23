@@ -1,4 +1,8 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder, http};
+use actix_files as fs;
+use std::path::PathBuf;
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder, http, HttpRequest, Result};
+use actix_web::http::StatusCode;
+use actix_web::web::service;
 use log::{LevelFilter, info};
 use settings::Settings;
 use simple_logger::SimpleLogger;
@@ -8,7 +12,6 @@ use actix_cors::Cors;
 
 mod api;
 mod settings;
-
 
 #[actix_web::main]
 async fn main() -> Result<(), sqlx::Error> {
@@ -39,6 +42,10 @@ async fn main() -> Result<(), sqlx::Error> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .wrap(cors)
+            .service(api::index::index)
+            .service(fs::Files::new("/static", "./dist/static").show_files_listing())
+            .service(fs::Files::new("/css", "./dist/css").show_files_listing())
+            .service(fs::Files::new("/js", "./dist/js").show_files_listing())
             .service(api::links::create_link)
             .service(api::links::get_all_links)
             .service(api::links::get_from_link)

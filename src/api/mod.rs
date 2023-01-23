@@ -1,4 +1,5 @@
 pub mod links;
+pub mod index;
 
 use serde::Serialize;
 
