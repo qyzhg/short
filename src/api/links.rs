@@ -9,6 +9,7 @@ use actix_web::http::StatusCode;
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, MySql, Pool};
+use url::{Url, Host, Position};
 
 use crate::api::ApiResult;
 
@@ -35,6 +36,11 @@ impl ApiAddLink {
 #[post("/create")]
 async fn create_link(link: Json<ApiAddLink>, data: web::Data<Pool<MySql>>) -> impl Responder {
     let new_link = link.0.to_new_link();
+    // 检查url合法性
+    if let Err(e) = Url::parse(&new_link.origin_url) {
+        return Json(ApiResult::error(e.to_string()));
+    };
+    // 查询是否有历史记录
     match get_tiny_code(data.as_ref().clone(), new_link.origin_url.clone()).await{
         Ok(old_tiny_code) => {
             // 如果能查到历史记录，就把历史记录返回

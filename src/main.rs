@@ -16,7 +16,7 @@ mod settings;
 #[actix_web::main]
 async fn main() -> Result<(), sqlx::Error> {
     SimpleLogger::new()
-        .with_level(LevelFilter::Info)
+        .with_level(LevelFilter::Debug)
         .init()
         .unwrap();
 

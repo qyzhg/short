@@ -18,3 +18,4 @@ tera = { version = "1", default-features = false }
 lazy_static = "1.4.0"
 log = "0.4"
 simple_logger = "4.0.0"
+url = "2.3.1"
