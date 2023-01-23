@@ -7,7 +7,7 @@ use actix_web::{
 };
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
-use sqlx::{MySql, Pool};
+use sqlx::{Error, MySql, Pool};
 
 use crate::api::ApiResult;
 
@@ -34,11 +34,26 @@ impl ApiAddLink {
 #[post("/create")]
 async fn create_link(link: Json<ApiAddLink>, data: web::Data<Pool<MySql>>) -> impl Responder {
     let new_link = link.0.to_new_link();
-    let new_code = new_link.tiny_code.clone();
-    if let Err(e) = insert_into_tiny_link(data.as_ref().clone(), new_link).await {
-        return Json(ApiResult::error(e.to_string()));
+    match get_tiny_code(data.as_ref().clone(), new_link.origin_url.clone()).await{
+        Ok(old_tiny_code) => {
+            // 如果能查到历史记录，就把历史记录返回
+            Json(ApiResult::success(Some(old_tiny_code)))
+        },
+        Err(e) => {
+            match e {
+                // 如果没有返回值的情况，就新建一条，然后把新的值返回
+                Error::RowNotFound => {
+                    let new_code = new_link.tiny_code.clone();
+                    if let Err(e) = insert_into_tiny_link(data.as_ref().clone(), new_link).await {
+                        return Json(ApiResult::error(e.to_string()));
+                    }
+                    Json(ApiResult::success(Some(new_code)))
+                }
+                // 有正经错误就抛异常
+                _ => Json(ApiResult::error(e.to_string()))
+            }
+        }
     }
-    Json(ApiResult::success(Some(new_code)))
 }
 
 async fn insert_into_tiny_link(pool: Pool<MySql>, new_link: Link) -> Result<u64, sqlx::Error> {
@@ -85,6 +100,14 @@ async fn get_origin_url_from_link(path: Path<String>, data: web::Data<Pool<MySql
 async fn get_original_url(pool: Pool<MySql>, code: String) -> Result<String, sqlx::Error> {
     let row: (String,) = sqlx::query_as("SELECT origin_url from tiny_link where tiny_code = ?")
         .bind(code)
+        .fetch_one(&pool)
+        .await?;
+    Ok(row.0)
+}
+
+async fn get_tiny_code(pool: Pool<MySql>, url: String) -> Result<String, sqlx::Error> {
+    let row: (String,) = sqlx::query_as("SELECT tiny_code from tiny_link where origin_url = ?")
+        .bind(url)
         .fetch_one(&pool)
         .await?;
     Ok(row.0)

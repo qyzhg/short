@@ -3,41 +3,12 @@ use log::{LevelFilter, info};
 use settings::Settings;
 use simple_logger::SimpleLogger;
 use sqlx::mysql::MySqlPoolOptions;
-use tera::{Context, Tera};
 use actix_cors::Cors;
 
 
 mod api;
 mod settings;
 
-#[macro_use]
-extern crate lazy_static;
-
-lazy_static! {
-    pub static ref TEMPLATES: Tera = {
-        let tera = match Tera::new("templates/**/*") {
-            Ok(t) => t,
-            Err(e) => {
-                println!("Parsing error: {}", e);
-                ::std::process::exit(1);
-            }
-        };
-
-        tera
-    };
-}
-
-#[get("/")]
-async fn index() -> impl Responder {
-    let content = "短链接生成";
-    let mut data = Context::new();
-
-    data.insert("content", content);
-
-    let rendered = TEMPLATES.render("index.html", &data).unwrap();
-
-    HttpResponse::Ok().body(rendered)
-}
 
 #[actix_web::main]
 async fn main() -> Result<(), sqlx::Error> {
@@ -68,7 +39,6 @@ async fn main() -> Result<(), sqlx::Error> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .wrap(cors)
-            .service(index)
             .service(api::links::create_link)
             .service(api::links::get_all_links)
             .service(api::links::get_from_link)
