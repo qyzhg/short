@@ -10,6 +10,7 @@ use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, MySql, Pool};
 use url::{Url, Host, Position};
+use rand::Rng;
 
 use crate::api::ApiResult;
 
@@ -26,8 +27,10 @@ struct ApiAddLink {
 
 impl ApiAddLink {
     fn to_new_link(self) -> Link {
+        let mut rng = rand::thread_rng();
+        let n = rng.gen_range(5..8) as usize;
         Link {
-            tiny_code: nanoid!(5),
+            tiny_code: nanoid!(n),
             origin_url: self.origin_url,
         }
     }
@@ -64,8 +67,9 @@ async fn create_link(link: Json<ApiAddLink>, data: web::Data<Pool<MySql>>) -> im
 }
 
 async fn insert_into_tiny_link(pool: Pool<MySql>, new_link: Link) -> Result<u64, sqlx::Error> {
-    let insert_id = sqlx::query(r#"insert into tiny_link(tiny_code, origin_url) values (?, ?)"#)
+    let insert_id = sqlx::query(r#"insert into tiny_link(tiny_code, origin_url, url_sha1) values (?, ?, SHA1(?))"#)
         .bind(new_link.tiny_code)
+        .bind(new_link.origin_url.clone())
         .bind(new_link.origin_url)
         .execute(&pool)
         .await?
@@ -113,7 +117,8 @@ async fn get_original_url(pool: Pool<MySql>, code: String) -> Result<String, sql
 }
 
 async fn get_tiny_code(pool: Pool<MySql>, url: String) -> Result<String, sqlx::Error> {
-    let row: (String,) = sqlx::query_as("SELECT tiny_code from tiny_link where origin_url = ?")
+    let row: (String,) = sqlx::query_as("SELECT tiny_code from tiny_link where url_sha1 = SHA1(?) AND origin_url = ?")
+        .bind(url.clone())
         .bind(url)
         .fetch_one(&pool)
         .await?;
