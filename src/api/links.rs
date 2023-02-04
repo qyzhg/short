@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Error, MySql, Pool};
 use url::{Url, Host, Position};
 use rand::Rng;
+use log::{LevelFilter, info, error};
+
 
 use crate::api::ApiResult;
 
@@ -41,18 +43,21 @@ async fn create_link(link: Json<ApiAddLink>, data: web::Data<Pool<MySql>>) -> im
     let new_link = link.0.to_new_link();
     // 检查url合法性
     if let Err(e) = Url::parse(&new_link.origin_url) {
+        error!("url不合法:{}",e);
         return Json(ApiResult::error(e.to_string()));
     };
     // 查询是否有历史记录
     match get_tiny_code(data.as_ref().clone(), new_link.origin_url.clone()).await{
         Ok(old_tiny_code) => {
             // 如果能查到历史记录，就把历史记录返回
+            info!("存在历史记录，复用原有code");
             Json(ApiResult::success(Some(old_tiny_code)))
         },
         Err(e) => {
             match e {
                 // 如果没有返回值的情况，就新建一条，然后把新的值返回
                 Error::RowNotFound => {
+                    info!("不存在历史记录，新建数据");
                     let new_code = new_link.tiny_code.clone();
                     if let Err(e) = insert_into_tiny_link(data.as_ref().clone(), new_link).await {
                         return Json(ApiResult::error(e.to_string()));
@@ -60,7 +65,10 @@ async fn create_link(link: Json<ApiAddLink>, data: web::Data<Pool<MySql>>) -> im
                     Json(ApiResult::success(Some(new_code)))
                 }
                 // 有正经错误就抛异常
-                _ => Json(ApiResult::error(e.to_string()))
+                _ => {
+                    error!("获取短链接错误：{}", e.to_string());
+                    Json(ApiResult::error(e.to_string()))
+                }
             }
         }
     }
@@ -85,10 +93,11 @@ async fn get_from_link(path: Path<String>, data: web::Data<Pool<MySql>>) -> impl
     let url = match url {
         Ok(x) => x,
         Err(e) => {
-            println!("{}", e);
+            error!("重定向错误：{}", e);
             return HttpResponse::NotFound().finish();
         }
     };
+    info!("请求地址：{:?}", url);
     HttpResponse::Found()
         .append_header((header::LOCATION, url))
         .finish()
@@ -101,7 +110,7 @@ async fn get_origin_url_from_link(path: Path<String>, data: web::Data<Pool<MySql
     let url = match url {
         Ok(x) => x,
         Err(e) => {
-            print!("{}", e);
+            info!("{}", e);
             return  Json(ApiResult::error("404"))
         }
     };
